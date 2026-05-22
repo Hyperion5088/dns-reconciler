@@ -1,0 +1,33 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "DNS Reconciler",
+        "description": "Enter a Cloudflare API token with DNS read/edit for the target zone.",
+        "data": {"token": "Cloudflare API token"}
+      },
+      "zone": {
+        "title": "Select DNS zone",
+        "data": {"zone_id": "Zone"}
+      },
+      "records": {
+        "title": "Select records and external IP source",
+        "data": {"external_ip_entity": "External IP entity", "record_ids": "Managed DNS records"}
+      }
+    },
+    "error": {
+      "auth_failed": "Authentication failed.",
+      "records_failed": "Could not load DNS records.",
+      "no_records": "Select at least one DNS record."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "DNS Reconciler options",
+        "data": {"external_ip_entity": "External IP entity", "record_ids": "Managed DNS records"}
+      }
+    },
+    "error": {"records_failed": "Could not load DNS records."}
+  }
+}
