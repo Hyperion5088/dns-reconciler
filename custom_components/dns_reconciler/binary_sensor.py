@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity
+from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -16,8 +16,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
 
 class DnsRecordInSyncBinarySensor(DnsReconcilerEntity, BinarySensorEntity):
-    _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
-
     def __init__(self, coordinator: DnsReconcilerCoordinator, record_id: str) -> None:
         super().__init__(coordinator, record_id)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{record_id}_dns_in_sync"
