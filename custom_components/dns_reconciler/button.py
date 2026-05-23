@@ -4,10 +4,10 @@ from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import DnsReconcilerCoordinator
+from .entity import DnsReconcilerEntity
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
@@ -17,24 +17,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     async_add_entities(entities)
 
 
-class DnsRecordUpdateButton(CoordinatorEntity[DnsReconcilerCoordinator], ButtonEntity):
+class DnsRecordUpdateButton(DnsReconcilerEntity, ButtonEntity):
     _attr_icon = "mdi:cloud-sync"
 
     def __init__(self, coordinator: DnsReconcilerCoordinator, record_id: str) -> None:
-        super().__init__(coordinator)
-        self.record_id = record_id
+        super().__init__(coordinator, record_id)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{record_id}_update_dns"
 
     @property
     def name(self) -> str:
-        data = self.coordinator.data.get(self.record_id, {}) if self.coordinator.data else {}
-        return f"Update {data.get('name', self.record_id)} DNS"
+        return f"Update {self.record_name} DNS"
 
     async def async_press(self) -> None:
-        await self.coordinator.async_reconcile_record(self.record_id)
+        await self.coordinator.async_reconcile_record(self.record_id or "")
 
 
-class DnsReconcileAllButton(CoordinatorEntity[DnsReconcilerCoordinator], ButtonEntity):
+class DnsReconcileAllButton(DnsReconcilerEntity, ButtonEntity):
     _attr_icon = "mdi:cloud-sync-outline"
 
     def __init__(self, coordinator: DnsReconcilerCoordinator) -> None:

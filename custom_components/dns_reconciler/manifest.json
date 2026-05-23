@@ -4,9 +4,9 @@
   "codeowners": ["@antony"],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/antony/dns-reconciler",
+  "documentation": "https://github.com/Hyperion5088/dns-reconciler",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/antony/dns-reconciler/issues",
+  "issue_tracker": "https://github.com/Hyperion5088/dns-reconciler/issues",
   "requirements": [],
-  "version": "0.1.0"
+  "version": "0.1.1"
 }
