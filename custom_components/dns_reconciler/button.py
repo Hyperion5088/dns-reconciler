@@ -38,7 +38,7 @@ class DnsReconcileAllButton(DnsReconcilerEntity, ButtonEntity):
     def __init__(self, coordinator: DnsReconcilerCoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_reconcile_all"
-        self._attr_name = "DNS Reconciler Reconcile All"
+        self._attr_name = "Reconcile All"
 
     async def async_press(self) -> None:
         await self.coordinator.async_reconcile_all()
