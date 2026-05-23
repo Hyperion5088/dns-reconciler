@@ -12,7 +12,13 @@
       },
       "records": {
         "title": "Select records and external IP source",
-        "data": {"external_ip_entity": "External IP entity", "record_ids": "Managed DNS records"}
+        "data": {
+          "external_ip_entity": "External IP entity",
+          "use_public_ip_fallback": "Use public IP web service if entity is unavailable",
+          "public_ip_url": "Public IP fallback URL",
+          "auto_sync": "Automatically update Cloudflare when out of sync",
+          "record_ids": "Managed DNS records"
+        }
       }
     },
     "error": {
@@ -25,7 +31,13 @@
     "step": {
       "init": {
         "title": "DNS Reconciler options",
-        "data": {"external_ip_entity": "External IP entity", "record_ids": "Managed DNS records"}
+        "data": {
+          "external_ip_entity": "External IP entity",
+          "use_public_ip_fallback": "Use public IP web service if entity is unavailable",
+          "public_ip_url": "Public IP fallback URL",
+          "auto_sync": "Automatically update Cloudflare when out of sync",
+          "record_ids": "Managed DNS records"
+        }
       }
     },
     "error": {"records_failed": "Could not load DNS records."}

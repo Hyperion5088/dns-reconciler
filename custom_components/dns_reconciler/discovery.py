@@ -15,8 +15,8 @@ BAD_ENTITY_HINTS = (
     "dns_response",
     "ping",
 )
-GOOD_HINTS = ("wan", "public_ip", "external_ip", "internet_ip", "external", "public")
-BEST_PLATFORM_HINTS = ("unifi_network_infrastructure", "unifi", "router", "gateway")
+GOOD_HINTS = ("wan", "wan_ip", "ip_wan", "public_ip", "external_ip", "internet_ip", "external", "public")
+BEST_PLATFORM_HINTS = ("unifi_network_infrastructure", "unifi", "udm", "router", "gateway")
 
 
 def is_global_ip(value: str) -> bool:
@@ -46,7 +46,9 @@ def discover_external_ip_entities(hass: HomeAssistant) -> list[tuple[str, str]]:
         score = 0
         if "wan" in haystack:
             score += 50
-        if "ip_wan" in haystack:
+        if "ip_wan" in haystack or "wan_ip" in haystack:
+            score += 30
+        if "unifi" in haystack or "udm" in haystack:
             score += 30
         if any(hint in haystack for hint in BEST_PLATFORM_HINTS):
             score += 20

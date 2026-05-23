@@ -13,12 +13,16 @@ from homeassistant.helpers import selector
 from .cloudflare import CloudflareClient, CloudflareError, DnsRecord
 from .const import (
     CONF_EXTERNAL_IP_ENTITY,
+    CONF_PUBLIC_IP_URL,
+    CONF_USE_PUBLIC_IP_FALLBACK,
+    CONF_AUTO_SYNC,
     CONF_PROVIDER,
     CONF_RECORD_IDS,
     CONF_TOKEN,
     CONF_ZONE_ID,
     CONF_ZONE_NAME,
     DOMAIN,
+    DEFAULT_PUBLIC_IP_URL,
     PROVIDER_CLOUDFLARE,
 )
 from .discovery import discover_external_ip_entities
@@ -84,16 +88,22 @@ class DnsReconcilerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_TOKEN: self._token,
                         CONF_ZONE_ID: self._zone_id,
                         CONF_ZONE_NAME: self._zone_name,
-                        CONF_EXTERNAL_IP_ENTITY: user_input[CONF_EXTERNAL_IP_ENTITY],
+                        CONF_EXTERNAL_IP_ENTITY: user_input.get(CONF_EXTERNAL_IP_ENTITY, ""),
+                        CONF_USE_PUBLIC_IP_FALLBACK: user_input.get(CONF_USE_PUBLIC_IP_FALLBACK, True),
+                        CONF_PUBLIC_IP_URL: user_input.get(CONF_PUBLIC_IP_URL, DEFAULT_PUBLIC_IP_URL),
+                        CONF_AUTO_SYNC: user_input.get(CONF_AUTO_SYNC, False),
                         CONF_RECORD_IDS: record_ids,
                     },
                 )
 
         record_options = {r.id: f"{r.name} ({r.type}) -> {r.content}" for r in self._records}
         schema = vol.Schema({
-            vol.Required(CONF_EXTERNAL_IP_ENTITY, default=default_external): selector.EntitySelector(
+            vol.Optional(CONF_EXTERNAL_IP_ENTITY, default=default_external): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain="sensor")
             ),
+            vol.Optional(CONF_USE_PUBLIC_IP_FALLBACK, default=True): selector.BooleanSelector(),
+            vol.Optional(CONF_PUBLIC_IP_URL, default=DEFAULT_PUBLIC_IP_URL): str,
+            vol.Optional(CONF_AUTO_SYNC, default=False): selector.BooleanSelector(),
             vol.Required(CONF_RECORD_IDS): selector.SelectSelector(selector.SelectSelectorConfig(
                 options=[{"value": key, "label": label} for key, label in record_options.items()],
                 multiple=True,
@@ -123,6 +133,12 @@ class DnsReconcilerOptionsFlow(config_entries.OptionsFlow):
                 errors["base"] = "records_failed"
         candidates = discover_external_ip_entities(self.hass)
         current_external = self.entry.options.get(CONF_EXTERNAL_IP_ENTITY, self.entry.data.get(CONF_EXTERNAL_IP_ENTITY, ""))
+        current_public_url = self.entry.options.get(CONF_PUBLIC_IP_URL, self.entry.data.get(CONF_PUBLIC_IP_URL, DEFAULT_PUBLIC_IP_URL))
+        current_use_fallback = self.entry.options.get(
+            CONF_USE_PUBLIC_IP_FALLBACK,
+            self.entry.data.get(CONF_USE_PUBLIC_IP_FALLBACK, True),
+        )
+        current_auto_sync = self.entry.options.get(CONF_AUTO_SYNC, self.entry.data.get(CONF_AUTO_SYNC, False))
         if not current_external and candidates:
             current_external = candidates[0][0]
 
@@ -132,9 +148,12 @@ class DnsReconcilerOptionsFlow(config_entries.OptionsFlow):
         record_options = {r.id: f"{r.name} ({r.type}) -> {r.content}" for r in self._records}
         current_records = self.entry.options.get(CONF_RECORD_IDS, self.entry.data.get(CONF_RECORD_IDS, []))
         schema = vol.Schema({
-            vol.Required(CONF_EXTERNAL_IP_ENTITY, default=current_external): selector.EntitySelector(
+            vol.Optional(CONF_EXTERNAL_IP_ENTITY, default=current_external): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain="sensor")
             ),
+            vol.Optional(CONF_USE_PUBLIC_IP_FALLBACK, default=current_use_fallback): selector.BooleanSelector(),
+            vol.Optional(CONF_PUBLIC_IP_URL, default=current_public_url): str,
+            vol.Optional(CONF_AUTO_SYNC, default=current_auto_sync): selector.BooleanSelector(),
             vol.Required(CONF_RECORD_IDS, default=current_records): selector.SelectSelector(selector.SelectSelectorConfig(
                 options=[{"value": key, "label": label} for key, label in record_options.items()],
                 multiple=True,

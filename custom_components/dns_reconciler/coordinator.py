@@ -12,9 +12,24 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .cloudflare import CloudflareClient, CloudflareError, DnsRecord
-from .const import CONF_EXTERNAL_IP_ENTITY, CONF_RECORD_IDS, CONF_TOKEN, CONF_ZONE_ID, UPDATE_INTERVAL_MINUTES
+from .const import (
+    CONF_EXTERNAL_IP_ENTITY,
+    CONF_PUBLIC_IP_URL,
+    CONF_USE_PUBLIC_IP_FALLBACK,
+    CONF_AUTO_SYNC,
+    CONF_RECORD_IDS,
+    CONF_TOKEN,
+    CONF_ZONE_ID,
+    DEFAULT_PUBLIC_IP_URL,
+    UPDATE_INTERVAL_MINUTES,
+)
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def should_auto_reconcile(auto_sync: bool, desired_ip: str | None, current_ip: str | None) -> bool:
+    """Return true when an automatic DNS update should run."""
+    return bool(auto_sync and desired_ip and current_ip != desired_ip)
 
 
 class DnsReconcilerCoordinator(DataUpdateCoordinator[dict[str, dict]]):
@@ -37,24 +52,70 @@ class DnsReconcilerCoordinator(DataUpdateCoordinator[dict[str, dict]]):
     def managed_record_ids(self) -> list[str]:
         return list(self.entry.options.get(CONF_RECORD_IDS, self.entry.data.get(CONF_RECORD_IDS, [])))
 
-    def external_ip(self) -> str | None:
-        state = self.hass.states.get(self.external_ip_entity)
-        if state is None:
-            return None
-        value = str(state.state or "").strip()
+    def _valid_global_ip(self, value: str) -> str | None:
         try:
             ip = ipaddress.ip_address(value)
         except ValueError:
             return None
         return str(ip) if ip.is_global else None
 
+    def _external_ip_from_entity(self) -> str | None:
+        if not self.external_ip_entity:
+            return None
+        state = self.hass.states.get(self.external_ip_entity)
+        if state is None:
+            return None
+        return self._valid_global_ip(str(state.state or "").strip())
+
+    @property
+    def auto_sync(self) -> bool:
+        return bool(self.entry.options.get(CONF_AUTO_SYNC, self.entry.data.get(CONF_AUTO_SYNC, False)))
+
+    @property
+    def use_public_ip_fallback(self) -> bool:
+        return bool(
+            self.entry.options.get(
+                CONF_USE_PUBLIC_IP_FALLBACK,
+                self.entry.data.get(CONF_USE_PUBLIC_IP_FALLBACK, True),
+            )
+        )
+
+    @property
+    def public_ip_url(self) -> str:
+        return self.entry.options.get(
+            CONF_PUBLIC_IP_URL,
+            self.entry.data.get(CONF_PUBLIC_IP_URL, DEFAULT_PUBLIC_IP_URL),
+        )
+
+    async def external_ip(self) -> str | None:
+        if entity_ip := self._external_ip_from_entity():
+            return entity_ip
+        if not self.use_public_ip_fallback:
+            return None
+        try:
+            async with async_get_clientsession(self.hass).get(
+                self.public_ip_url,
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                text = (await resp.text()).strip()
+                if resp.status >= 400:
+                    return None
+                return self._valid_global_ip(text)
+        except aiohttp.ClientError:
+            return None
+
     async def _async_update_data(self) -> dict[str, dict]:
-        desired_ip = self.external_ip()
+        desired_ip = await self.external_ip()
         data: dict[str, dict] = {}
         for record_id in self.managed_record_ids:
             try:
                 record = await self.client.dns_record(self.zone_id, record_id)
-                data[record_id] = self._record_data(record, desired_ip)
+                updated = False
+                if should_auto_reconcile(self.auto_sync, desired_ip, record.content):
+                    record = await self.client.update_record_content(self.zone_id, record, desired_ip or "")
+                    updated = True
+                    _LOGGER.info("Auto-updated DNS record %s (%s) to current external IP", record.name, record.type)
+                data[record_id] = self._record_data(record, desired_ip, updated=updated)
             except CloudflareError as err:
                 data[record_id] = {"record_id": record_id, "error": str(err), "desired_ip": desired_ip}
         return data
@@ -74,7 +135,7 @@ class DnsReconcilerCoordinator(DataUpdateCoordinator[dict[str, dict]]):
         }
 
     async def async_reconcile_record(self, record_id: str) -> None:
-        desired_ip = self.external_ip()
+        desired_ip = await self.external_ip()
         if not desired_ip:
             raise CloudflareError(f"External IP entity {self.external_ip_entity} is missing or not a global IP")
         record = await self.client.dns_record(self.zone_id, record_id)
